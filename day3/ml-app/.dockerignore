@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+*.pyo
+.Python
+.git
+.gitignore
+.venv
+venv/
+train_model.py
+*.ipynb
+.DS_Store
