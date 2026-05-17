@@ -1,0 +1,51 @@
+# Stage 1: Builder
+FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04 AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+RUN pip3 install --no-cache-dir \
+    torch torchvision \
+    --index-url https://download.pytorch.org/whl/cu121 && \
+    pip3 install --no-cache-dir -r requirements.txt && \
+    rm -rf /root/.cache/pip && \
+    find /usr/local/lib -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib -name "*.pyc" -delete && \
+    find /usr/local/lib -name "*.pyx" -delete && \
+    find /usr/local/lib -name "*.pxd" -delete
+
+# Stage 2: Runtime
+FROM nvidia/cuda:12.2.0-base-ubuntu22.04
+
+WORKDIR /app
+
+# Install python3.10 AND create the python3 symlink explicitly
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-distutils \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.10 /usr/bin/python3
+
+# Copy packages from builder
+COPY --from=builder /usr/local/lib/python3.10/dist-packages \
+    /usr/local/lib/python3.10/dist-packages
+
+# Copy binaries installed by pip (flask, gunicorn entry points etc)
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+COPY app_gpu.py resnet18.pth ./
+
+ENV PYTHONUNBUFFERED=1 \
+    PORT=8000 \
+    PYTHONPATH=/usr/local/lib/python3.10/dist-packages
+
+EXPOSE 8000
+
+CMD ["python3", "app_gpu.py"]

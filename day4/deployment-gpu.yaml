@@ -1,0 +1,21 @@
+# deployment-gpu.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-inference-gpu
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: inference
+        image: ml-inference:gpu    # 183MB
+        resources:
+          requests:
+            nvidia.com/gpu: 1
+            memory: "8Gi"
+          limits:
+            nvidia.com/gpu: 1
+            memory: "16Gi"
+      nodeSelector:
+        accelerator: nvidia-tesla-t4

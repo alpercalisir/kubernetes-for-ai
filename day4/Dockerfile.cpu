@@ -1,0 +1,46 @@
+# Stage 1: Builder
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+# Pin numpy<2 before torch to avoid ABI mismatch
+RUN pip install --no-cache-dir "numpy<2" && \
+    pip install --no-cache-dir \
+        torch torchvision \
+        --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt && \
+    rm -rf /root/.cache/pip && \
+    find /usr/local/lib -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib -name "*.pyc" -delete && \
+    find /usr/local/lib -name "*.pyx" -delete && \
+    find /usr/local/lib -name "*.pxd" -delete
+
+# Stage 2: Runtime
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy installed packages
+COPY --from=builder /usr/local/lib/python3.11/site-packages \
+    /usr/local/lib/python3.11/site-packages
+
+# Copy pip-installed binaries and entry points (flask CLI etc)
+COPY --from=builder /usr/local/bin \
+    /usr/local/bin
+
+COPY app_gpu.py resnet18.pth ./
+
+ENV PYTHONUNBUFFERED=1 \
+    PORT=8000
+
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 8000
+
+CMD ["python", "app_gpu.py"]
