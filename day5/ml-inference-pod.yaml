@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ml-inference
+  labels:
+    app: ml-inference
+spec:
+  containers:
+  - name: inference
+    image: ml-app:final
+    imagePullPolicy: Never   # Use local image, don't try to pull from registry
+    ports:
+    - containerPort: 8000
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "500m"
